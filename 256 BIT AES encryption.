@@ -1,0 +1,40 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.backends import default_backend
+import os
+import base64
+
+def generate_key(password, salt):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return kdf.derive(password)
+
+def add_padding(message):
+    padder = padding.PKCS7(128).padder()
+    padded_data = padder.update(message) + padder.finalize()
+    return padded_data
+
+def encrypt(message, key):
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(message) + encryptor.finalize()
+    return iv + ciphertext
+
+passphrase = input("Enter a passphrase: ").encode()
+salt = os.urandom(16)
+key = generate_key(passphrase, salt)
+
+message = input("Enter a message: ").encode()
+padded_message = add_padding(message)
+ciphertext = encrypt(padded_message, key)
+
+print("Encrypted message:", base64.b64encode(ciphertext).decode())
+print("Salt:", base64.b64encode(salt).decode())
