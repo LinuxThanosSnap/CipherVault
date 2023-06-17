@@ -1,0 +1,39 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.backends import default_backend
+import base64
+
+# Encrypt your passphrase using 256-bit AES encryption
+def generate_key(password, salt):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend()
+    )
+    return kdf.derive(password)
+
+def decrypt(ciphertext, key):
+    iv = ciphertext[:16]
+    ciphertext = ciphertext[16:]
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    padded_message = decryptor.update(ciphertext) + decryptor.finalize()
+    return remove_padding(padded_message)
+
+def remove_padding(padded_message):
+    unpadder = padding.PKCS7(128).unpadder()
+    data = unpadder.update(padded_message) + unpadder.finalize()
+    return data
+
+passphrase = input("Enter passphrase: ").encode()
+salt = base64.b64decode(input("Enter the base64-encoded salt: "))
+key = generate_key(passphrase, salt)
+
+encrypted_message = base64.b64decode(input("Enter the base64-encoded encrypted message: "))
+
+decrypted_message = decrypt(encrypted_message, key)
+print("Decrypted message:", decrypted_message.decode())
